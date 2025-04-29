@@ -30,6 +30,7 @@ lint:
 
 # Run formatting and apply fixes
 format:
+	isort sherpa_dns
 	ruff check --fix .
 	black sherpa_dns
 
@@ -42,5 +43,5 @@ help:
 	@echo "  make stop      - Stop the application"
 	@echo "  make clean     - Clean up Docker resources"
 	@echo "  make lint      - Run linting checks"
-	@echo "  make format    - Apply linting fixes and formatting"
+	@echo "  make format    - Sort imports, apply lint fixes, and formatting"
 	@echo "  make help      - Show this help message"
