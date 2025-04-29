@@ -1,0 +1,15 @@
+[tool.ruff]
+# Enable Flake8 rules
+select = ["E", "F"]
+
+# Ignore specific rules
+ignore = ["E501"]  # Line too long
+
+# Line length
+line-length = 100
+
+# Assume Python 3.12
+target-version = "py312"
+
+# Also sort imports (replacing isort)
+extend-select = ["I"]
