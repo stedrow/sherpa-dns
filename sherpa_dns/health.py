@@ -4,12 +4,10 @@ Health check module for Sherpa-DNS.
 This module provides health check endpoints for monitoring the application.
 """
 
-import asyncio
 import json
 import logging
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
-from typing import Dict, List, Optional
 
 import docker
 
@@ -18,11 +16,11 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
     """
     HTTP request handler for health check endpoints.
     """
-    
+
     def __init__(self, *args, **kwargs):
         self.logger = logging.getLogger("sherpa-dns.health")
         super().__init__(*args, **kwargs)
-    
+
     def do_GET(self):
         """
         Handle GET requests.
@@ -35,7 +33,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             self.wfile.write(b"Not Found")
-    
+
     def _handle_health_check(self):
         """
         Handle health check requests.
@@ -44,31 +42,25 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         try:
             docker_client = docker.from_env()
             docker_client.ping()
-            
+
             # Return 200 OK
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-            
-            response = {
-                "status": "healthy",
-                "docker": "connected"
-            }
-            
+
+            response = {"status": "healthy", "docker": "connected"}
+
             self.wfile.write(json.dumps(response).encode())
         except Exception as e:
             # Return 503 Service Unavailable
             self.send_response(503)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-            
-            response = {
-                "status": "unhealthy",
-                "docker": f"error: {str(e)}"
-            }
-            
+
+            response = {"status": "unhealthy", "docker": f"error: {str(e)}"}
+
             self.wfile.write(json.dumps(response).encode())
-    
+
     def _handle_metrics(self):
         """
         Handle metrics requests.
@@ -77,16 +69,16 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
-        
+
         # Simple metrics
         metrics = [
             "# HELP sherpa_dns_up Whether the Sherpa-DNS service is up",
             "# TYPE sherpa_dns_up gauge",
-            "sherpa_dns_up 1"
+            "sherpa_dns_up 1",
         ]
-        
+
         self.wfile.write("\n".join(metrics).encode())
-    
+
     def log_message(self, format, *args):
         """
         Override log_message to use the application logger.
@@ -98,11 +90,11 @@ class HealthCheckServer:
     """
     HTTP server for health check endpoints.
     """
-    
+
     def __init__(self, host: str = "0.0.0.0", port: int = 8080):
         """
         Initialize a HealthCheckServer.
-        
+
         Args:
             host: Host to bind to
             port: Port to bind to
@@ -112,7 +104,7 @@ class HealthCheckServer:
         self.server = None
         self.thread = None
         self.logger = logging.getLogger("sherpa-dns.health")
-    
+
     def start(self):
         """
         Start the health check server.
@@ -122,7 +114,7 @@ class HealthCheckServer:
         self.thread.daemon = True
         self.thread.start()
         self.logger.info(f"Health check: {self.host}:{self.port}/health")
-    
+
     def stop(self):
         """
         Stop the health check server.

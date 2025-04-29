@@ -1,4 +1,4 @@
-.PHONY: build run run-dev stop clean test lint
+.PHONY: build run run-dev stop clean test lint format
 
 # Docker image name
 IMAGE_NAME = sherpa-dns
@@ -25,7 +25,14 @@ clean: stop
 
 # Run linting
 lint:
-	python3 -m flake8 sherpa_dns
+	ruff check .
+	black --check sherpa_dns
+
+# Run formatting and apply fixes
+format:
+	isort sherpa_dns
+	ruff check --fix .
+	black sherpa_dns
 
 # Show help
 help:
@@ -35,5 +42,6 @@ help:
 	@echo "  make run-dev   - Run the application in development mode (with logs)"
 	@echo "  make stop      - Stop the application"
 	@echo "  make clean     - Clean up Docker resources"
-	@echo "  make lint      - Run linting"
+	@echo "  make lint      - Run linting checks"
+	@echo "  make format    - Sort imports, apply lint fixes, and formatting"
 	@echo "  make help      - Show this help message"
