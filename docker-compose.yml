@@ -1,0 +1,12 @@
+services:
+  sherpa-dns:
+    build: .
+    volumes:
+      - ./sherpa-dns.yaml:/config/sherpa-dns.yaml
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
