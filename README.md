@@ -32,12 +32,15 @@ Sherpa-DNS is a Python application designed to create and manage DNS records for
 
 2. Configure your Cloudflare API token:
    ```bash
-   # Edit the docker-compose.yml file
-   nano docker-compose.yml
-   ```
-   Replace `your_api_token_here` with your actual Cloudflare API token.
+   # Create your .env file
+   vim .env
 
-3. Build and run the application:
+   CLOUDFLARE_API_TOKEN="<your-api-token-with-dns-edit-perms>"
+   ENCRYPTION_KEY="random-passphrase-here"  # optional: if encryption is enabled in your sherpa-dns.yaml
+   ```
+3. copy `example_sherpa-dns.yaml` -> `sherpa-dns.yaml` and edit as needed.   
+
+4. Build and run the application:
    ```bash
    make run
    ```
