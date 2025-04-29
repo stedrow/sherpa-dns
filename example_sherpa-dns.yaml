@@ -1,0 +1,33 @@
+source:
+  label_prefix: "sherpa.dns"
+  label_filter: ""
+
+provider:
+  name: "cloudflare"
+  cloudflare:
+    api_token: "${CLOUDFLARE_API_TOKEN}"
+    proxied_by_default: false
+
+registry:
+  type: "txt"
+  txt_prefix: "sherpa-dns-"
+  txt_owner_id: "default"
+  txt_wildcard_replacement: "*"
+  encrypt: true
+  encryption_key: "${ENCRYPTION_KEY:-}"
+
+controller:
+  interval: "1m"
+  once: false
+  dry_run: false
+  cleanup_on_stop: true
+  cleanup_delay: "15m"
+
+domains:
+  include:
+    # - "internal.example.com"
+  # exclude:
+    # - "internal.example.com"
+
+logging:
+  level: "info"
