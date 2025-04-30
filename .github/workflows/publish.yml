@@ -41,18 +41,33 @@ jobs:
           # Checkout the merge commit
           ref: ${{ github.event.pull_request.merge_commit_sha }}
 
-      - name: Get PR labels
-        id: pr_labels
-        uses: actions-ecosystem/action-get-labels@v1.1.5
+      - name: Get Current PR Labels via API
+        id: get_labels
+        # Use gh cli to get current labels directly from the PR API
+        run: |
+          # Fetches labels for the PR that triggered the event
+          labels=$(gh api --jq '.labels.[].name' "/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}")
+          echo "Current labels: $labels"
+          # Store newline-separated labels in output
+          echo "labels<<EOF" >> $GITHUB_OUTPUT
+          echo "$labels" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          # GITHUB_TOKEN is required for gh cli to authenticate
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Determine Version Bump Type from PR Label
         id: version_bump
         run: |
-          labels='${{ join(fromJson(steps.pr_labels.outputs.labels), ' ') }}'
-          echo "Labels: $labels"
-          major=$(echo "$labels" | grep -c 'major')
-          minor=$(echo "$labels" | grep -c 'minor')
-          patch=$(echo "$labels" | grep -c 'patch')
+          # Read newline-separated labels from the previous step's output
+          labels="${{ steps.get_labels.outputs.labels }}"
+          echo "Labels found:"
+          echo "$labels"
+
+          # Count occurrences of each version label
+          major=$(echo "$labels" | grep -cx 'major')
+          minor=$(echo "$labels" | grep -cx 'minor')
+          patch=$(echo "$labels" | grep -cx 'patch')
           total=$((major + minor + patch))
 
           if [ "$total" -ne 1 ]; then
