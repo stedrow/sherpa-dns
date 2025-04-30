@@ -104,11 +104,18 @@ jobs:
           echo "${{ steps.calc_version.outputs.new_version }}" > VERSION
           cat VERSION
 
+      - name: Update docker-compose.yml with new version
+        run: |
+          echo "Updating docker-compose.yml with version ${{ steps.calc_version.outputs.new_version }}"
+          sed -i -E "s|(image: ghcr.io/stedrow/sherpa-dns:)[^[:space:]]+|\\1${{ steps.calc_version.outputs.new_version }}|g" docker/docker-compose.yml
+          echo "Contents of docker/docker-compose.yml after update:"
+          cat docker/docker-compose.yml
+
       - name: Commit and Push Version Update from PR
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add VERSION
+          git add VERSION docker/docker-compose.yml
           # Use merge commit sha in message for traceability
           COMMIT_SHA=${{ github.event.pull_request.merge_commit_sha }}
           git commit -m "chore: Bump version to ${{ steps.calc_version.outputs.new_version }} for merge $COMMIT_SHA"
@@ -211,11 +218,18 @@ jobs:
           echo "${{ steps.calc_version.outputs.new_version }}" > VERSION
           cat VERSION
 
+      - name: Update docker-compose.yml with new version
+        run: |
+          echo "Updating docker-compose.yml with version ${{ steps.calc_version.outputs.new_version }}"
+          sed -i -E "s|(image: ghcr.io/stedrow/sherpa-dns:)[^[:space:]]+|\\1${{ steps.calc_version.outputs.new_version }}|g" docker/docker-compose.yml
+          echo "Contents of docker/docker-compose.yml after update:"
+          cat docker/docker-compose.yml
+
       - name: Commit and Push Version Update from Manual Trigger
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add VERSION
+          git add VERSION docker/docker-compose.yml
           git commit -m "chore(release): Bump version to ${{ steps.calc_version.outputs.new_version }} (manual trigger)"
           # Push directly to main branch
           echo "Pushing version update to main"

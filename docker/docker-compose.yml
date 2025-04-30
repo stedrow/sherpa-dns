@@ -1,6 +1,8 @@
 services:
   sherpa-dns:
-    build: .
+    # The image tag below should be updated by the GitHub Action
+    # when a new version is published via a VERSION commit to main.
+    image: ghcr.io/stedrow/sherpa-dns:0.1.1
     volumes:
       - ./sherpa-dns.yaml:/config/sherpa-dns.yaml
       - /var/run/docker.sock:/var/run/docker.sock
