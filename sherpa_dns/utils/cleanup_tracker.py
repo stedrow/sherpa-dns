@@ -10,6 +10,9 @@ import re
 import time
 from typing import Dict, List
 
+# Note: No internal imports needed for this file's core logic
+# from sherpa_dns.models.models import Endpoint # Removed as Endpoint is not used here
+
 
 class CleanupTracker:
     """

@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 
 import cloudflare
 
-from sherpa_dns.models import Changes, Endpoint
+from sherpa_dns.models.models import Changes, Endpoint
 
 
 class CloudflareProvider:

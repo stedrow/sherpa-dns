@@ -9,8 +9,8 @@ import asyncio
 import logging
 from typing import Optional
 
-from sherpa_dns.cleanup_tracker import CleanupTracker
-from sherpa_dns.plan import Plan
+from sherpa_dns.controller.plan import Plan
+from sherpa_dns.utils.cleanup_tracker import CleanupTracker
 
 
 class Controller:
