@@ -11,9 +11,9 @@ import ipaddress
 import logging
 from typing import Dict, List, Optional, Set
 
-import docker
 from docker.models.containers import Container
 
+import docker
 from sherpa_dns.models.models import Endpoint
 
 

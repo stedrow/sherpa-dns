@@ -8,7 +8,7 @@ COMPOSE_DEV_FILE = docker/docker-compose.dev.yml
 # Dockerfile location
 DOCKERFILE = docker/Dockerfile
 
-# Build the Docker image using the specified Dockerfile and context
+# Build the Docker image
 build:
 	docker build -t $(IMAGE_NAME):latest -f $(DOCKERFILE) .
 

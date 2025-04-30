@@ -10,6 +10,3 @@ line-length = 100
 
 # Assume Python 3.12
 target-version = "py312"
-
-# Also sort imports (replacing isort)
-extend-select = ["I"]
