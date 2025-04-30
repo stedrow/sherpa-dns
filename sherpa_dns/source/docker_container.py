@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Set
 import docker
 from docker.models.containers import Container
 
-from sherpa_dns.models import Endpoint
+from sherpa_dns.models.models import Endpoint
 
 
 class DockerContainerSource:

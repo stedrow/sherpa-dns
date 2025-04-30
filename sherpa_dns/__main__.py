@@ -9,10 +9,10 @@ from pathlib import Path
 
 from sherpa_dns.config.config import Config
 from sherpa_dns.controller.controller import Controller
-from sherpa_dns.health import HealthCheckServer
 from sherpa_dns.provider.cloudflare import CloudflareProvider
 from sherpa_dns.registry.txt_registry import TXTRegistry
 from sherpa_dns.source.docker_container import DockerContainerSource
+from sherpa_dns.utils.health import HealthCheckServer
 
 
 async def main():
@@ -20,7 +20,8 @@ async def main():
     # Setup logging
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
     logger = logging.getLogger("sherpa-dns")
