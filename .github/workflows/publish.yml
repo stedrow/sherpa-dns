@@ -4,24 +4,36 @@ on:
   pull_request:
     types: [closed]
     branches:
-      - main # Or your default branch
+      - main
+  workflow_dispatch:
+    inputs:
+      bump_level:
+        description: 'Select the version bump level'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
 
 permissions:
   contents: write # Needed to push version bump commits and tags
   packages: write # Needed to push docker image to GHCR
 
 jobs:
-  build_and_publish:
-    name: Build and Publish Docker Image
+  publish_from_pr:
+    name: Publish Docker Image from PR
     # Only run if PR was merged and has exactly one version label
     if: |-
       github.event.pull_request.merged == true &&
+      github.event_name == 'pull_request' &&
       (contains(github.event.pull_request.labels.*.name, 'major') ||
        contains(github.event.pull_request.labels.*.name, 'minor') ||
        contains(github.event.pull_request.labels.*.name, 'patch'))
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout repository based on PR merge commit
         uses: actions/checkout@v4
         with:
           # Fetch all history and tags for version bumping/tagging
@@ -31,9 +43,9 @@ jobs:
 
       - name: Get PR labels
         id: pr_labels
-        uses: actions-ecosystem/action-get-labels@v1
+        uses: actions-ecosystem/action-get-labels@v1.1.5
 
-      - name: Determine Version Bump Type
+      - name: Determine Version Bump Type from PR Label
         id: version_bump
         run: |
           labels='${{ join(fromJson(steps.pr_labels.outputs.labels), ' ') }}'
@@ -59,7 +71,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # Or your preferred version
+          python-version: '3.12'
 
       - name: Calculate Next Version
         id: calc_version
@@ -86,7 +98,7 @@ jobs:
           echo "${{ steps.calc_version.outputs.new_version }}" > VERSION
           cat VERSION
 
-      - name: Commit and Push Version Update
+      - name: Commit and Push Version Update from PR
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
@@ -96,6 +108,7 @@ jobs:
           git commit -m "chore: Bump version to ${{ steps.calc_version.outputs.new_version }} for merge $COMMIT_SHA"
           # Push directly to the base branch (e.g., main) of the merge
           BASE_REF=${{ github.event.pull_request.base.ref }}
+          echo "Pushing version update to $BASE_REF"
           git push origin HEAD:$BASE_REF
 
       - name: Create Git Tag
@@ -124,15 +137,110 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=schedule
-            type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{version}},value=v${{ steps.calc_version.outputs.new_version }}
             type=semver,pattern={{major}}.{{minor}},value=v${{ steps.calc_version.outputs.new_version }}
             type=semver,pattern={{major}},value=v${{ steps.calc_version.outputs.new_version }}
             type=sha
             # Add latest tag only for default branch (main)
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+            type=raw,value=latest,enable=${{ github.event.pull_request.base.ref == 'main' }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  publish_manually:
+    name: Publish Docker Image Manually
+    runs-on: ubuntu-latest
+    # Only run on workflow_dispatch trigger
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          # Fetch all history and tags for version bumping/tagging
+          fetch-depth: 0
+          ref: 'main' # Checkout the main branch explicitly
+
+      # Version Bump Type is determined by the workflow_dispatch input
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Calculate Next Version
+        id: calc_version
+        run: |
+          BUMP_TYPE=${{ github.inputs.bump_level }} # Use input from workflow_dispatch
+          CURRENT_VERSION=$(cat VERSION)
+          echo "Current version: $CURRENT_VERSION"
+          echo "Manual bump type: $BUMP_TYPE"
+
+          # Simple Python script for SemVer bumping (same as other job)
+          NEW_VERSION=$(python -c \
+            "parts = '${CURRENT_VERSION}'.split('.'); major=int(parts[0]); minor=int(parts[1]); patch=int(parts[2]); \
+            bump='${BUMP_TYPE}'; \
+            if bump == 'major': major += 1; minor = 0; patch = 0; \
+            elif bump == 'minor': minor += 1; patch = 0; \
+            else: patch += 1; \
+            print(f'{major}.{minor}.{patch}')")
+
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update VERSION file
+        run: |
+          echo "${{ steps.calc_version.outputs.new_version }}" > VERSION
+          cat VERSION
+
+      - name: Commit and Push Version Update from Manual Trigger
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add VERSION
+          git commit -m "chore(release): Bump version to ${{ steps.calc_version.outputs.new_version }} (manual trigger)"
+          # Push directly to main branch
+          echo "Pushing version update to main"
+          git push origin HEAD:refs/heads/main
+
+      - name: Create Git Tag
+        run: |
+          VERSION="v${{ steps.calc_version.outputs.new_version }}"
+          echo "Creating tag $VERSION"
+          git tag $VERSION
+          git push origin $VERSION
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}},value=v${{ steps.calc_version.outputs.new_version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.calc_version.outputs.new_version }}
+            type=semver,pattern={{major}},value=v${{ steps.calc_version.outputs.new_version }}
+            type=sha
+            # Add latest tag since this is running on main
+            type=raw,value=latest,enable=true
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
