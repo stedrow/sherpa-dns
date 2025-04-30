@@ -181,8 +181,8 @@ jobs:
           echo "Current version: $CURRENT_VERSION"
           echo "Manual bump type: ${{ github.inputs.bump_level }}"
 
-          # Define Python script in a shell variable
-          read -r -d '' PYTHON_SCRIPT << 'EOF'
+          # Define Python script in a shell variable, allowing expansion
+          read -r -d '' PYTHON_SCRIPT << EOF
           import sys
           parts = '${CURRENT_VERSION}'.split('.')
           major=int(parts[0])
