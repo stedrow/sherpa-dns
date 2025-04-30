@@ -53,7 +53,6 @@ jobs:
           echo "$labels" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         env:
-          # GITHUB_TOKEN is required for gh cli to authenticate
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Determine Version Bump Type from PR Label
@@ -134,7 +133,7 @@ jobs:
           # Use merge commit sha in message for traceability
           COMMIT_SHA=${{ github.event.pull_request.merge_commit_sha }}
           git commit -m "chore: Bump version to ${{ steps.calc_version.outputs.new_version }} for merge $COMMIT_SHA"
-          # Push directly to the base branch (e.g., main) of the merge
+          # Push directly to the base branch
           BASE_REF=${{ github.event.pull_request.base.ref }}
           echo "Pushing version update to $BASE_REF"
           git push origin HEAD:$BASE_REF
@@ -194,14 +193,14 @@ jobs:
         with:
           # Fetch all history and tags for version bumping/tagging
           fetch-depth: 0
-          ref: 'main' # Checkout the main branch explicitly
+          ref: 'main'
 
       # Version Bump Type is determined by the workflow_dispatch input
       - name: Calculate Next Version
         id: calc_version
         run: |
           CURRENT_VERSION=$(cat VERSION)
-          BUMP_TYPE=${{ github.inputs.bump_level }} # Use input from workflow_dispatch
+          BUMP_TYPE=${{ github.inputs.bump_level }}
           echo "Current version: $CURRENT_VERSION"
           echo "Manual bump type: $BUMP_TYPE"
 
