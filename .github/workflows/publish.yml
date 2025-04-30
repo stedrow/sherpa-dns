@@ -1,0 +1,146 @@
+name: Publish Docker Image
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main # Or your default branch
+
+permissions:
+  contents: write # Needed to push version bump commits and tags
+  packages: write # Needed to push docker image to GHCR
+
+jobs:
+  build_and_publish:
+    name: Build and Publish Docker Image
+    # Only run if PR was merged and has exactly one version label
+    if: |-
+      github.event.pull_request.merged == true &&
+      (contains(github.event.pull_request.labels.*.name, 'major') ||
+       contains(github.event.pull_request.labels.*.name, 'minor') ||
+       contains(github.event.pull_request.labels.*.name, 'patch'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch all history and tags for version bumping/tagging
+          fetch-depth: 0
+          # Checkout the merge commit
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Get PR labels
+        id: pr_labels
+        uses: actions-ecosystem/action-get-labels@v1
+
+      - name: Determine Version Bump Type
+        id: version_bump
+        run: |
+          labels='${{ join(fromJson(steps.pr_labels.outputs.labels), ' ') }}'
+          echo "Labels: $labels"
+          major=$(echo "$labels" | grep -c 'major')
+          minor=$(echo "$labels" | grep -c 'minor')
+          patch=$(echo "$labels" | grep -c 'patch')
+          total=$((major + minor + patch))
+
+          if [ "$total" -ne 1 ]; then
+            echo "Error: PR must have exactly one version label (major, minor, patch). Found $total."
+            exit 1
+          fi
+
+          if [ "$major" -eq 1 ]; then
+            echo "bump_type=major"
+          elif [ "$minor" -eq 1 ]; then
+            echo "bump_type=minor"
+          else
+            echo "bump_type=patch"
+          fi >> $GITHUB_OUTPUT
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Or your preferred version
+
+      - name: Calculate Next Version
+        id: calc_version
+        run: |
+          BUMP_TYPE=${{ steps.version_bump.outputs.bump_type }}
+          CURRENT_VERSION=$(cat VERSION)
+          echo "Current version: $CURRENT_VERSION"
+          echo "Bump type: $BUMP_TYPE"
+
+          # Simple Python script for SemVer bumping
+          NEW_VERSION=$(python -c \
+            "parts = '${CURRENT_VERSION}'.split('.'); major=int(parts[0]); minor=int(parts[1]); patch=int(parts[2]); \
+            bump='${BUMP_TYPE}'; \
+            if bump == 'major': major += 1; minor = 0; patch = 0; \
+            elif bump == 'minor': minor += 1; patch = 0; \
+            else: patch += 1; \
+            print(f'{major}.{minor}.{patch}')")
+
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update VERSION file
+        run: |
+          echo "${{ steps.calc_version.outputs.new_version }}" > VERSION
+          cat VERSION
+
+      - name: Commit and Push Version Update
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add VERSION
+          # Use merge commit sha in message for traceability
+          COMMIT_SHA=${{ github.event.pull_request.merge_commit_sha }}
+          git commit -m "chore: Bump version to ${{ steps.calc_version.outputs.new_version }} for merge $COMMIT_SHA"
+          # Push directly to the base branch (e.g., main) of the merge
+          BASE_REF=${{ github.event.pull_request.base.ref }}
+          git push origin HEAD:$BASE_REF
+
+      - name: Create Git Tag
+        run: |
+          VERSION="v${{ steps.calc_version.outputs.new_version }}"
+          echo "Creating tag $VERSION"
+          git tag $VERSION
+          git push origin $VERSION
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}},value=v${{ steps.calc_version.outputs.new_version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.calc_version.outputs.new_version }}
+            type=semver,pattern={{major}},value=v${{ steps.calc_version.outputs.new_version }}
+            type=sha
+            # Add latest tag only for default branch (main)
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max 
