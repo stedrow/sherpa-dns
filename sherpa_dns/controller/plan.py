@@ -8,7 +8,7 @@ in line with the desired state.
 import logging
 from typing import Dict, List
 
-from sherpa_dns.models.models import Changes, Endpoint  # Updated import
+from sherpa_dns.models.models import Changes, Endpoint
 
 
 class Plan:
