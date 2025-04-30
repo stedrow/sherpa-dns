@@ -41,36 +41,26 @@ jobs:
           # Checkout the merge commit
           ref: ${{ github.event.pull_request.merge_commit_sha }}
 
-      - name: Get Current PR Labels via API
-        id: get_labels
-        # Use gh cli to get current labels directly from the PR API
-        run: |
-          # Fetches labels for the PR that triggered the event
-          labels=$(gh api --jq '.labels.[].name' "/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}")
-          echo "Current labels: $labels"
-          # Store newline-separated labels in output
-          echo "labels<<EOF" >> $GITHUB_OUTPUT
-          echo "$labels" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Determine Version Bump Type from PR Label
         id: version_bump
         run: |
-          # Read newline-separated labels from the previous step's output
-          labels="${{ steps.get_labels.outputs.labels }}"
-          echo "Labels found:"
-          echo "$labels"
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO="${{ github.repository }}"
+          API_URL="/repos/$REPO/pulls/$PR_NUMBER"
 
-          # Count occurrences of each version label
-          major=$(echo "$labels" | grep -cx 'major')
-          minor=$(echo "$labels" | grep -cx 'minor')
-          patch=$(echo "$labels" | grep -cx 'patch')
+          echo "Fetching label counts for PR #$PR_NUMBER in repo $REPO"
+
+          # Use gh api with jq to count exact matches for each label type
+          major=$(gh api --jq '[.labels.[].name] | map(select(. == "major")) | length' "$API_URL")
+          minor=$(gh api --jq '[.labels.[].name] | map(select(. == "minor")) | length' "$API_URL")
+          patch=$(gh api --jq '[.labels.[].name] | map(select(. == "patch")) | length' "$API_URL")
+
+          echo "Counts - Major: $major, Minor: $minor, Patch: $patch"
+
           total=$((major + minor + patch))
 
           if [ "$total" -ne 1 ]; then
-            echo "Error: PR must have exactly one version label (major, minor, patch). Found $total."
+            echo "Error: PR must have exactly one version label (major, minor, or patch). Found $total matching version labels (Major: $major, Minor: $minor, Patch: $patch)."
             exit 1
           fi
 
@@ -78,9 +68,16 @@ jobs:
             echo "bump_type=major"
           elif [ "$minor" -eq 1 ]; then
             echo "bump_type=minor"
-          else
+          elif [ "$patch" -eq 1 ]; then
             echo "bump_type=patch"
+          # This else should theoretically not be reached due to the total check
+          else
+             echo "Error: Logic error determining bump type despite total count being 1."
+             exit 1
           fi >> $GITHUB_OUTPUT
+        env:
+          # GITHUB_TOKEN is needed for gh api calls
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Calculate Next Version
         id: calc_version
