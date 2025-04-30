@@ -68,11 +68,6 @@ jobs:
             echo "bump_type=patch"
           fi >> $GITHUB_OUTPUT
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Calculate Next Version
         id: calc_version
         run: |
@@ -81,15 +76,26 @@ jobs:
           echo "Current version: $CURRENT_VERSION"
           echo "Bump type: $BUMP_TYPE"
 
-          # Simple Python script for SemVer bumping
-          NEW_VERSION=$(python -c \
-            "parts = '${CURRENT_VERSION}'.split('.'); major=int(parts[0]); minor=int(parts[1]); patch=int(parts[2]); \
-            bump='${BUMP_TYPE}'; \
-            if bump == 'major': major += 1; minor = 0; patch = 0; \
-            elif bump == 'minor': minor += 1; patch = 0; \
-            else: patch += 1; \
-            print(f'{major}.{minor}.{patch}')")
+          # Use awk for shell-based SemVer bumping
+          current_major=$(echo $CURRENT_VERSION | awk -F. '{print $1}')
+          current_minor=$(echo $CURRENT_VERSION | awk -F. '{print $2}')
+          current_patch=$(echo $CURRENT_VERSION | awk -F. '{print $3}')
 
+          if [ "$BUMP_TYPE" == "major" ]; then
+            new_major=$((current_major + 1))
+            new_minor=0
+            new_patch=0
+          elif [ "$BUMP_TYPE" == "minor" ]; then
+            new_major=$current_major
+            new_minor=$((current_minor + 1))
+            new_patch=0
+          else # patch
+            new_major=$current_major
+            new_minor=$current_minor
+            new_patch=$((current_patch + 1))
+          fi
+
+          NEW_VERSION="${new_major}.${new_minor}.${new_patch}"
           echo "New version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
@@ -169,41 +175,34 @@ jobs:
           ref: 'main' # Checkout the main branch explicitly
 
       # Version Bump Type is determined by the workflow_dispatch input
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Calculate Next Version
         id: calc_version
         run: |
           CURRENT_VERSION=$(cat VERSION)
+          BUMP_TYPE=${{ github.inputs.bump_level }} # Use input from workflow_dispatch
           echo "Current version: $CURRENT_VERSION"
-          echo "Manual bump type: ${{ github.inputs.bump_level }}"
+          echo "Manual bump type: $BUMP_TYPE"
 
-          # Define Python script in a shell variable, allowing expansion
-          read -r -d '' PYTHON_SCRIPT << EOF
-          import sys
-          parts = '${CURRENT_VERSION}'.split('.')
-          major=int(parts[0])
-          minor=int(parts[1])
-          patch=int(parts[2])
-          bump='${{ github.inputs.bump_level }}'
-          if bump == 'major':
-            major += 1
-            minor = 0
-            patch = 0
-          elif bump == 'minor':
-            minor += 1
-            patch = 0
-          else:
-            patch += 1
-          print(f'{major}.{minor}.{patch}')
-          EOF
+          # Use awk for shell-based SemVer bumping
+          current_major=$(echo $CURRENT_VERSION | awk -F. '{print $1}')
+          current_minor=$(echo $CURRENT_VERSION | awk -F. '{print $2}')
+          current_patch=$(echo $CURRENT_VERSION | awk -F. '{print $3}')
 
-          # Execute the script
-          NEW_VERSION=$(python -c "$PYTHON_SCRIPT")
+          if [ "$BUMP_TYPE" == "major" ]; then
+            new_major=$((current_major + 1))
+            new_minor=0
+            new_patch=0
+          elif [ "$BUMP_TYPE" == "minor" ]; then
+            new_major=$current_major
+            new_minor=$((current_minor + 1))
+            new_patch=0
+          else # patch
+            new_major=$current_major
+            new_minor=$current_minor
+            new_patch=$((current_patch + 1))
+          fi
 
+          NEW_VERSION="${new_major}.${new_minor}.${new_patch}"
           echo "New version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
