@@ -181,13 +181,26 @@ jobs:
           echo "Current version: $CURRENT_VERSION"
           echo "Manual bump type: ${{ github.inputs.bump_level }}"
 
-          # Simple Python script for SemVer bumping (single line)
-          NEW_VERSION=$(python -c \
-            "parts = '${CURRENT_VERSION}'.split('.'); major=int(parts[0]); minor=int(parts[1]); patch=int(parts[2]); bump='${{ github.inputs.bump_level }}'; \
-            if bump == 'major': major += 1; minor = 0; patch = 0; \
-            elif bump == 'minor': minor += 1; patch = 0; \
-            else: patch += 1; \
-            print(f'{major}.{minor}.{patch}')")
+          # Simple Python script for SemVer bumping (multi-line string)
+          # Pass properly indented Python code to python -c
+          NEW_VERSION=$(python -c "
+import sys
+parts = '${CURRENT_VERSION}'.split('.')
+major=int(parts[0])
+minor=int(parts[1])
+patch=int(parts[2])
+bump='${{ github.inputs.bump_level }}'
+if bump == 'major':
+  major += 1
+  minor = 0
+  patch = 0
+elif bump == 'minor':
+  minor += 1
+  patch = 0
+else:
+  patch += 1
+print(f'{major}.{minor}.{patch}')
+")
 
           echo "New version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
