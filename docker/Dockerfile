@@ -9,6 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY ./sherpa_dns ./sherpa_dns
+# Copy the VERSION file
+COPY VERSION .
 
 # Create non-root user for security and add to docker group
 RUN apt-get update && apt-get install -y --no-install-recommends \
