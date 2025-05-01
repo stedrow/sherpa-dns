@@ -82,9 +82,18 @@ class TXTRegistry:
                     # Parse TXT record content
                     parsed_content = self._parse_txt_content(txt_content)
 
-                    # Update record with parsed content
+                    # Update record with parsed content, specifically handling TTL='auto'
                     if "ttl" in parsed_content:
-                        record.record_ttl = int(parsed_content["ttl"])
+                        ttl_value = parsed_content["ttl"]
+                        if ttl_value == "auto":
+                            record.record_ttl = 1
+                        else:
+                            try:
+                                record.record_ttl = int(ttl_value)
+                            except ValueError:
+                                self.logger.warning(
+                                    f"Could not parse TTL value '{ttl_value}' from TXT record for {record.dnsname}. Skipping TTL update."
+                                )
 
                     managed_records.append(record)
 
@@ -125,8 +134,8 @@ class TXTRegistry:
 
     def _get_txt_record_name(self, endpoint: Endpoint) -> str:
         """
-        Gets the TXT record name based on the endpoint's DNS name.
-        For CNAME records, applies the prefix to avoid name conflicts.
+        Gets the TXT record name based on the endpoint's DNS name,
+        applying the configured prefix.
 
         Args:
             endpoint: Endpoint
@@ -134,13 +143,7 @@ class TXTRegistry:
         Returns:
             str: TXT record name
         """
-        if endpoint.record_type == "CNAME":
-            # For CNAME records, we need to use a prefix to avoid conflicts
-            # since TXT and CNAME records cannot share the same name
-            return f"{self.txt_prefix}{endpoint.dnsname}"
-        else:
-            # For other record types (A, AAAA, etc.), we can use the same name
-            return endpoint.dnsname
+        return f"{self.txt_prefix}{endpoint.dnsname}"
 
     def _get_txt_record_content(self, endpoint: Endpoint) -> str:
         """
@@ -155,14 +158,18 @@ class TXTRegistry:
         content = {
             "heritage": "sherpa-dns",
             "owner": self.txt_owner_id,
-            "resource": "docker-compose",
+            "resource": "docker",
         }
 
         if endpoint.targets:
             content["targets"] = ",".join(endpoint.targets)
 
-        if endpoint.record_ttl:
-            content["ttl"] = str(endpoint.record_ttl)
+        # Special handling for TTL in TXT record content
+        if endpoint.record_ttl is not None:
+            if endpoint.record_ttl == 1:
+                content["ttl"] = "auto"  # Represent TTL 1 as 'auto'
+            else:
+                content["ttl"] = str(endpoint.record_ttl)
 
         # Convert to string
         content_str = ",".join([f"{k}={v}" for k, v in content.items()])
@@ -353,6 +360,7 @@ class TXTRegistry:
     def _parse_txt_content(self, txt_content: str) -> Dict[str, str]:
         """
         Parses TXT record content into a dictionary.
+        Format: "heritage=sherpa-dns,owner=default,resource=docker,ttl=auto"
 
         Args:
             txt_content: TXT record content
@@ -360,20 +368,26 @@ class TXTRegistry:
         Returns:
             Dict[str, str]: Parsed TXT record content
         """
-        parsed_content = {}
         # Strip leading/trailing quotes if present
         if txt_content.startswith('"') and txt_content.endswith('"'):
             txt_content = txt_content[1:-1]
 
-        parts = txt_content.split(
-            ","
-        )  # If txt_content = 'k1=v1,k2=v2', parts = ['k1=v1', 'k2=v2']
-        for part in parts:
-            if "=" in part:
-                key, value = part.split("=", 1)
-                parsed_content[
-                    key.strip()
-                ] = value.strip()  # Strip potential whitespace
+        parsed_content = {}
+        try:
+            # Use dict comprehension for parsing
+            parsed_content = {
+                key.strip(): value.strip()
+                for part in txt_content.split(",")
+                if "=" in part  # Ensure there's a separator
+                for key, value in [part.split("=", 1)]  # Split only once
+            }
+        except ValueError as e:
+            # Log error if splitting fails unexpectedly
+            self.logger.warning(
+                f"Could not parse TXT content: '{txt_content}'. Error: {e}"
+            )
+            return {}  # Return empty dict on error
+
         return parsed_content
 
     async def _create_txt_record(self, endpoint: Endpoint) -> None:
