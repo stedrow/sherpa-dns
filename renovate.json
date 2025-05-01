@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "dependencyDashboard": true,
+  "commitMessagePrefix": "chore(deps): ",
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "packageRules": [
+    {
+      "description": "Group GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    },
+    {
+      "description": "Group Dockerfile dependencies (base image, tools)",
+      "matchManagers": ["dockerfile"],
+      "groupName": "docker dependencies"
+    },
+    {
+      "description": "Group Python requirements updates",
+      "matchManagers": ["pip_requirements"],
+      "groupName": "python requirements"
+    },
+    {
+      "description": "Exclude the main application image in docker-compose.yml (updated by workflow)",
+      "matchFileNames": ["docker/docker-compose.yml"],
+      "matchPackageNames": ["ghcr.io/stedrow/sherpa-dns"],
+      "enabled": false
+    }
+  ]
+}
