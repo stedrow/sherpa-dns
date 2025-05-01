@@ -14,9 +14,19 @@ from sherpa_dns.registry.txt_registry import TXTRegistry
 from sherpa_dns.source.docker_container import DockerContainerSource
 from sherpa_dns.utils.health import HealthCheckServer
 
+# Define the path to the version file within the container
+VERSION_FILE_PATH = Path("/app/VERSION")
+
 
 async def main():
     """Main entry point running all components concurrently."""
+    app_version = "unknown"
+    try:
+        if VERSION_FILE_PATH.is_file():
+            app_version = VERSION_FILE_PATH.read_text().strip()
+    except Exception as e:
+        logging.warning(f"Could not read version file {VERSION_FILE_PATH}: {e}")
+
     # Setup logging
     logging.basicConfig(
         level=logging.INFO,
@@ -25,7 +35,7 @@ async def main():
         handlers=[logging.StreamHandler(sys.stdout)],
     )
     logger = logging.getLogger("sherpa-dns")
-    logger.info("Starting Sherpa-DNS")
+    logger.info(f"Starting Sherpa-DNS v{app_version}")
 
     # Load configuration
     config_path = Path(sys.argv[1]) if len(sys.argv) > 1 else None

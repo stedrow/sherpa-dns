@@ -1,10 +1,10 @@
 # Sherpa-DNS
 
-Sherpa-DNS is a Python application designed to create and manage DNS records for services defined in Docker Compose files. It draws inspiration from the Kubernetes External-DNS project but is specifically tailored for Docker Compose environments.
+Sherpa-DNS is a python application designed to create and manage DNS records for services defined in docker compose stacks or stand-alone docker containers via labels. It draws inspiration from the Kubernetes External-DNS project but is specifically tailored for docker environments.
 
 ## Features
 
-- Monitor Docker Compose services and create corresponding DNS records in Cloudflare
+- Monitor docker container start/stop actions and create corresponding DNS records in Cloudflare
 - Support both CNAME and A record types
 - Allow users to specify desired hostnames via labels
 - Support TTL configuration via labels
@@ -15,42 +15,29 @@ Sherpa-DNS is a Python application designed to create and manage DNS records for
 
 ## Requirements
 
-- Python 3.12 or higher
-- Docker
-- Docker Compose
+- Docker / Docker Compose
 - Cloudflare API token with DNS edit permissions
 
 ## Installation
 
-### Using Docker Compose
+### Using Docker Compose (recommended)
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/stedrow/sherpa-dns.git
-   cd sherpa-dns
-   ```
+1.  **Download the compose file:** Download the `docker-compose.yml` file from the [`docker/` directory](https://github.com/stedrow/sherpa-dns/blob/main/docker/docker-compose.yml) of this repository.
+2.  **Create `sherpa-dns.yaml`:** In the **same directory** where you saved `docker-compose.yml`, create your `sherpa-dns.yaml` configuration file (you can use `example_sherpa-dns.yaml` as a starting point).
+3.  **Create `.env` file:** In the **same directory**, create an `.env` file with your Cloudflare API token and, if using encryption, your encryption key:
+    ```bash
+    # .env file contents
+    CLOUDFLARE_API_TOKEN=your_api_token_here
+    ENCRYPTION_KEY=your_secret_passphrase_here # Only needed if registry.encrypt=true
+    ```
+4.  **Run Docker Compose:** From the directory containing your `docker-compose.yml`, `sherpa-dns.yaml`, and `.env` file, run:
+    ```bash
+    docker compose -f docker-compose.yml up -d
+    ```
 
-2. Configure your Cloudflare API token:
-   ```bash
-   # Create your .env file
-   vim .env
+### Using Docker stand-alone
 
-   CLOUDFLARE_API_TOKEN="<your-api-token-with-dns-edit-perms>"
-   ENCRYPTION_KEY="random-passphrase-here"  # optional: if encryption is enabled in your sherpa-dns.yaml
-   ```
-3. copy `example_sherpa-dns.yaml` -> `sherpa-dns.yaml` and edit as needed.   
-
-4. Build and run the application:
-   ```bash
-   make run
-   ```
-
-### Using Docker
-
-1. Build the Docker image:
-   ```bash
-   docker build -t sherpa-dns:latest .
-   ```
+1.  **Create `sherpa-dns.yaml`:** In the **same directory** where you saved `docker-compose.yml`, create your `sherpa-dns.yaml` configuration file (you can use `example_sherpa-dns.yaml` as a starting point).
 
 2. Run the container:
    ```bash
@@ -58,8 +45,9 @@ Sherpa-DNS is a Python application designed to create and manage DNS records for
      -v /var/run/docker.sock:/var/run/docker.sock \
      -v ./sherpa-dns.yaml:/config/sherpa-dns.yaml \
      -e CLOUDFLARE_API_TOKEN=your_api_token_here \
+     -e ENCRYPTION_KEY=your_secret_passphrase_here \
      --name sherpa-dns \
-     sherpa-dns:latest
+     ghcr.io/stedrow/sherpa-dns:latest
    ```
 
 ## Configuration
@@ -152,7 +140,6 @@ Docker development is recommended, makefile commands can make this easier as wel
 - `make stop`: Stop the application
 - `make clean`: Clean up Docker resources
 - `make lint`: Run linting
-- `make run-local`: Run the application locally (without Docker)
 - `make help`: Show help message
 
 ## License
