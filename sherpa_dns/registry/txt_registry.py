@@ -27,7 +27,7 @@ class TXTRegistry:
         provider,
         txt_prefix: str = "sherpa-dns-",
         txt_owner_id: str = "default",
-        txt_wildcard_replacement: str = "*",
+        txt_wildcard_replacement: str = "star",
         encrypt_txt: bool = False,
         encryption_key: Optional[str] = None,
     ):
@@ -143,7 +143,17 @@ class TXTRegistry:
         Returns:
             str: TXT record name
         """
-        return f"{self.txt_prefix}{endpoint.dnsname}"
+        # Start with the prefixed name
+        txt_name = f"{self.txt_prefix}{endpoint.dnsname}"
+
+        # Replace wildcard character if present
+        if "*" in txt_name:
+            txt_name = txt_name.replace("*", self.txt_wildcard_replacement)
+            self.logger.debug(
+                f"Replaced wildcard in TXT name for {endpoint.dnsname}: {txt_name}"
+            )
+
+        return txt_name
 
     def _get_txt_record_content(self, endpoint: Endpoint) -> str:
         """
