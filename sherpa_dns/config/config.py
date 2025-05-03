@@ -27,7 +27,7 @@ class Config(BaseModel):
     registry: str = "txt"
     txt_prefix: str = "sherpa-dns-"
     txt_owner_id: str = "default"
-    txt_wildcard_replacement: str = "*"
+    txt_wildcard_replacement: str = "star"
     encrypt_txt: bool = False
     encryption_key: Optional[str] = None
 
@@ -145,7 +145,7 @@ class Config(BaseModel):
         flat_config["txt_prefix"] = registry.get("txt_prefix", "sherpa-dns-")
         flat_config["txt_owner_id"] = registry.get("txt_owner_id", "default")
         flat_config["txt_wildcard_replacement"] = registry.get(
-            "txt_wildcard_replacement", "*"
+            "txt_wildcard_replacement", "star"
         )
         flat_config["encrypt_txt"] = registry.get("encrypt", False)
         flat_config["encryption_key"] = registry.get("encryption_key", None)

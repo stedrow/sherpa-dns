@@ -12,7 +12,7 @@ registry:
   type: "txt"
   txt_prefix: "sherpa-dns-"
   txt_owner_id: "default"
-  txt_wildcard_replacement: "*"
+  txt_wildcard_replacement: "star"
   encrypt: true
   encryption_key: "${ENCRYPTION_KEY:-}"
 
