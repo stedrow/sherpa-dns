@@ -64,12 +64,6 @@ This method also uses the pre-built image.
 
 Sherpa-DNS uses a YAML file (default: `sherpa-dns.yaml` passed as an argument, or looked for at `/config/sherpa-dns.yaml` inside the container) for configuration. Environment variables like `${VAR_NAME}` can be used and will be substituted from the container's environment (e.g., passed via `.env` or `-e`).
 
-### Global Settings
-
-These settings are typically defined at the root level of the YAML file, although some might be derived from nested structures depending on the exact `Config` class implementation. The examples below assume they are accessible via `config.<setting_name>` in the code.
-
-*   *(These might actually be under nested keys like `controller`, `registry`, etc. - refer to the specific sections below based on `example_sherpa-dns.yaml`)*
-
 ### `source` Section
 
 Configures how Sherpa-DNS discovers target endpoints.
