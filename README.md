@@ -1,4 +1,4 @@
-# Sherpa-DNS Documentation
+# Sherpa-DNS
 
 Sherpa-DNS is a python application designed to create and manage DNS records for services defined in docker compose stacks or stand-alone docker containers via labels. It draws inspiration from the Kubernetes External-DNS project but is specifically tailored for docker environments.
 
