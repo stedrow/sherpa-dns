@@ -8,7 +8,6 @@ Sherpa-DNS is a python application designed to create and manage DNS records for
   - [Using Docker Compose (Recommended)](#using-docker-compose-recommended)
   - [Using Docker Stand-alone](#using-docker-stand-alone)
 - [Configuration (`sherpa-dns.yaml`)](#configuration-sherpa-dnsyaml)
-  - [Global Settings](#global-settings)
   - [`source` Section](#source-section)
   - [`provider` Section](#provider-section)
   - [`registry` Section](#registry-section)
