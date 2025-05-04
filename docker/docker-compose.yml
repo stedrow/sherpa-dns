@@ -13,7 +13,7 @@ services:
       - "socket-proxy:/run/proxy"
 
   sherpa-dns:
-    image: ghcr.io/stedrow/sherpa-dns:latest
+    image: ghcr.io/stedrow/sherpa-dns:0.1.6
     container_name: sherpa-dns
     restart: unless-stopped
     environment:
