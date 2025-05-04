@@ -5,8 +5,7 @@ Sherpa-DNS is a python application designed to create and manage DNS records for
 ## Table of Contents
 
 - [Installation](#installation)
-  - [Using Docker Compose (Recommended)](#using-docker-compose-recommended)
-  - [Using Docker Stand-alone](#using-docker-stand-alone)
+  - [Using Docker Compose](#using-docker-compose-recommended)
 - [Configuration (`sherpa-dns.yaml`)](#configuration-sherpa-dnsyaml)
   - [`source` Section](#source-section)
   - [`provider` Section](#provider-section)
@@ -23,11 +22,15 @@ Sherpa-DNS is a python application designed to create and manage DNS records for
 
 ## Installation
 
-Sherpa-DNS runs as a Docker container and requires access to the Docker socket to monitor container events.
+Sherpa-DNS runs as a Docker container. It needs read access to the Docker API to monitor container events. Because the Sherpa-DNS image is based on Chainguard and runs as a non-root user (`nonroot` UID 65532) for enhanced security, it cannot directly access the host's Docker socket (`/var/run/docker.sock`) due to permissions.
 
-### Using Docker Compose (Recommended)
+To solve this securely, we rely on a dedicated [docker-socket-proxy](https://github.com/11notes/docker-socket-proxy) container. This proxy container runs with the necessary privileges to access the host's Docker socket. It then exposes a limited, read-only version of the Docker API which the non-root Sherpa-DNS container can safely connect to without needing direct access to the host socket itself.
 
-This method uses the pre-built image from GitHub Container Registry.
+The recommended installation method using Docker Compose handles setting up this proxy automatically.
+
+### Using Docker Compose
+
+This method uses the pre-built Sherpa-DNS image from GitHub Container Registry and includes the `docker-socket-proxy` for secure, non-root access to the Docker API. This is the easiest and most secure way to run Sherpa-DNS.
 
 1.  **Download the compose file:** Download `docker-compose.yml` from the [docker/directory](https://github.com/stedrow/sherpa-dns/blob/main/docker/docker-compose.yml) of the Sherpa-DNS repository.
 2.  **Create `sherpa-dns.yaml`:** In the **same directory** where you saved `docker-compose.yml`, create your `sherpa-dns.yaml` configuration file. You can copy [`example_sherpa-dns.yaml`](https://github.com/stedrow/sherpa-dns/blob/main/example_sherpa-dns.yaml) as a starting point and modify it.
@@ -37,31 +40,17 @@ This method uses the pre-built image from GitHub Container Registry.
     CLOUDFLARE_API_TOKEN=your_api_token_here
     ENCRYPTION_KEY=your_secret_passphrase_here # Only needed if registry.encrypt=true
     ```
-4.  **Run Docker Compose:** From the directory containing your `docker-compose.yml`, `sherpa-dns.yaml`, and `.env` file, run:
+5.  **Run Docker Compose:** From the directory containing your `docker-compose.yml`, `sherpa-dns.yaml`, and `.env` file, run:
     ```bash
-    docker compose -f docker-compose.yml up -d
+    docker compose up -d
     ```
-
-### Using Docker Stand-alone
-
-This method also uses the pre-built image.
-
-1.  **Create `sherpa-dns.yaml`:** Create your configuration file in a directory of your choice (e.g., `/etc/sherpa-dns/sherpa-dns.yaml`).
-2.  **Run the container:** Adjust the volume path for your configuration file. Provide environment variables directly.
-    ```bash
-    docker run -d \
-      --name sherpa-dns \
-      --restart unless-stopped \
-      -v /var/run/docker.sock:/var/run/docker.sock \
-      -v /path/to/your/sherpa-dns.yaml:/config/sherpa-dns.yaml \
-      -e CLOUDFLARE_API_TOKEN=your_api_token_here \
-      -e ENCRYPTION_KEY=your_secret_passphrase_here `# Optional` \
-      ghcr.io/stedrow/sherpa-dns:latest
-    ```
+    This will start both the `docker-socket-proxy` and the `sherpa-dns` service.
 
 ## Configuration (`sherpa-dns.yaml`)
 
 Sherpa-DNS uses a YAML file (default: `sherpa-dns.yaml` passed as an argument, or looked for at `/config/sherpa-dns.yaml` inside the container) for configuration. Environment variables like `${VAR_NAME}` can be used and will be substituted from the container's environment (e.g., passed via `.env` or `-e`).
+
+You can use [example_sherpa-dns.yaml](https://github.com/stedrow/sherpa-dns/blob/main/example_sherpa-dns.yaml) as a starting point to create your own config.
 
 ### `source` Section
 
@@ -171,10 +160,10 @@ services:
 # docker-compose.yml
 services:
   backend-service:
-    image: mybackend:latest
+    image: nginx:latest
     labels:
       - "sherpa.dns/hostname=api.example.com"
-      - "sherpa.dns/target=10.0.5.20"
+      - "sherpa.dns/target=123.123.1.20"
       - "sherpa.dns/ttl=600"
       - "sherpa.dns/proxied=true"
 ```
@@ -185,7 +174,7 @@ services:
 # docker-compose.yml
 services:
   redirector:
-    image: traefik/whoami # Example service
+    image: nginx:latest
     labels:
       - "sherpa.dns/hostname=old-app.example.com"
       - "sherpa.dns/type=CNAME"
@@ -199,7 +188,7 @@ services:
 # docker-compose.yml
 services:
   wildcard-handler:
-    image: my-ingress:latest
+    image: nginx:latest
     labels:
       - "sherpa.dns/hostname=*.internal.example.com"
       - "sherpa.dns/target=192.168.1.100" # Target IP for the wildcard A record
