@@ -1,13 +1,33 @@
 services:
-  sherpa-dns:
-    # Image tag updated by GitHub Action
-    image: ghcr.io/stedrow/sherpa-dns:0.1.6
-    volumes:
-      - ./sherpa-dns.yaml:/config/sherpa-dns.yaml
-      - /var/run/docker.sock:/var/run/docker.sock
+  docker-socket-proxy:
+    image: 11notes/socket-proxy:2.1.2
+    container_name: docker-socket-proxy
+    read_only: true
+    user: "0:0"  # make sure to use the same UID/GID as the owner of your docker socket!
+    restart: always
     environment:
-      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      - SOCKET_PROXY_UID=65532 # nonroot, used by sherpa-dns image
+      - SOCKET_PROXY_GID=65532 # nonroot, used by sherpa-dns image
+    volumes:
+      - "/run/docker.sock:/run/docker.sock:ro"
+      - "socket-proxy:/run/proxy"
+
+  sherpa-dns:
+    image: ghcr.io/stedrow/sherpa-dns:latest
+    container_name: sherpa-dns
     restart: unless-stopped
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    volumes:
+      # Connect to the PROXY's socket via the shared volume
+      - "socket-proxy:/var/run"
+      - "../sherpa-dns.yaml:/config/sherpa-dns.yaml:ro"
     ports:
-      - "8080:8080"
+      - "8080:8080" # Expose health/metrics port
+    depends_on:
+      docker-socket-proxy:
+        condition: service_healthy # Wait for proxy to be ready
+
+volumes:
+  socket-proxy:

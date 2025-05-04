@@ -1,32 +1,33 @@
-FROM python:3.13-slim
+FROM cgr.dev/chainguard/python:latest-dev AS builder
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PATH="/app/venv/bin:$PATH"
 
 WORKDIR /app
 
-# Install dependencies
-# Copy requirements from the project root
+# Copy and install dependencies in virtual environment
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m venv /app/venv && pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# --- Final Stage ---
+FROM cgr.dev/chainguard/python:latest
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PATH="/app/venv/bin:$PATH"
+
+WORKDIR /app
+
+# Copy virtual environment from builder stage
+COPY --from=builder /app/venv /app/venv
+
+# Copy application code and VERSION file
 COPY ./sherpa_dns ./sherpa_dns
-# Copy the VERSION file
 COPY VERSION .
-
-# Create non-root user for security and add to docker group
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gosu \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd -m sherpa
 
 # Expose ports for health check and metrics
 EXPOSE 8080
 
-# Add entrypoint script
-COPY ./docker/docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Set entrypoint
-ENTRYPOINT ["docker-entrypoint.sh"]
-
-# Run the application
-CMD ["python", "-m", "sherpa_dns", "/config/sherpa-dns.yaml"]
+# Run the application as the entrypoint
+ENTRYPOINT ["python", "-m", "sherpa_dns", "/config/sherpa-dns.yaml"]
