@@ -2,4 +2,4 @@ docker==7.1.0
 pydantic==2.11.7
 PyYAML==6.0.2
 CloudFlare==4.3.1
-cryptography==44.0.3
+cryptography==45.0.5
