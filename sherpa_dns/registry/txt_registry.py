@@ -413,14 +413,153 @@ class TXTRegistry:
         # Get TXT record content
         txt_record_content = self._get_txt_record_content(endpoint)
 
-        # Create TXT record
+        # Create TXT endpoint
         txt_endpoint = Endpoint(
             dnsname=txt_record_name,
             targets=[f'"{txt_record_content}"'],
             record_type="TXT",
         )
 
-        # Create TXT record
+        # Check if TXT record already exists
+        try:
+            # Get zone ID for the endpoint
+            zone_id = await self.provider._get_zone_id_for_endpoint(txt_endpoint)
+            if zone_id:
+                # Check if record already exists
+                existing_record_id = await self.provider._get_record_id(zone_id, txt_endpoint)
+                if existing_record_id:
+                    # Get the existing TXT record content to check ownership
+                    try:
+                        dns_records_iterator = self.provider.cf.dns.records.list(
+                            zone_id=zone_id,
+                            name=txt_record_name,
+                            type="TXT",
+                            per_page=5,
+                        )
+                        existing_records = list(dns_records_iterator)
+                        
+                        if existing_records:
+                            # Get the content of the existing record
+                            existing_content = getattr(existing_records[0], "content", "")
+                            # Strip quotes if present
+                            if existing_content.startswith('"') and existing_content.endswith('"'):
+                                existing_content = existing_content[1:-1]
+                            
+                            # Decrypt content if encryption is enabled
+                            if self.encrypt_txt:
+                                decrypted_content = self._decrypt_txt_content(existing_content)
+                                if decrypted_content:
+                                    existing_content = decrypted_content
+                                else:
+                                    self.logger.warning(
+                                        f"Failed to decrypt TXT record content for {txt_record_name}. "
+                                        f"Skipping ownership check and proceeding with creation."
+                                    )
+                                    # If we can't decrypt, assume we don't own it to be safe
+                                    existing_content = ""
+                            
+                            # Check if this instance owns the existing record
+                            if existing_content and self._is_owned_by_this_instance(existing_content):
+                                self.logger.warning(
+                                    f"TXT record {txt_record_name} already exists and is owned by this instance (ID: {existing_record_id}). "
+                                    f"This may indicate a cleanup issue. Updating existing record instead."
+                                )
+                                # Update the existing record since we own it
+                                await self.provider._update_record(txt_endpoint, txt_endpoint)
+                                return
+                            elif existing_content:
+                                self.logger.warning(
+                                    f"TXT record {txt_record_name} already exists but is owned by another instance. "
+                                    f"Skipping creation to avoid conflicts."
+                                )
+                                return
+                            else:
+                                self.logger.warning(
+                                    f"TXT record {txt_record_name} exists but could not determine ownership. "
+                                    f"Skipping creation to avoid conflicts."
+                                )
+                                return
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Error checking ownership of existing TXT record {txt_record_name}: {e}. "
+                            f"Proceeding with creation."
+                        )
+                
+                # Check for multiple TXT records with the same name (duplicates)
+                try:
+                    dns_records_iterator = self.provider.cf.dns.records.list(
+                        zone_id=zone_id,
+                        name=txt_record_name,
+                        type="TXT",
+                        per_page=10,  # Check for multiple records
+                    )
+                    existing_records = list(dns_records_iterator)
+                    
+                    if len(existing_records) > 1:
+                        self.logger.warning(
+                            f"Found {len(existing_records)} duplicate TXT records for {txt_record_name}. "
+                            f"Checking ownership before cleanup."
+                        )
+                        
+                        # Only delete duplicates that are owned by this instance
+                        records_to_delete = []
+                        for record in existing_records:
+                            record_id = getattr(record, "id", None)
+                            record_content = getattr(record, "content", "")
+                            
+                            if record_id and record_content:
+                                # Strip quotes if present
+                                if record_content.startswith('"') and record_content.endswith('"'):
+                                    record_content = record_content[1:-1]
+                                
+                                # Decrypt content if encryption is enabled
+                                if self.encrypt_txt:
+                                    decrypted_content = self._decrypt_txt_content(record_content)
+                                    if decrypted_content:
+                                        record_content = decrypted_content
+                                    else:
+                                        self.logger.warning(
+                                            f"Failed to decrypt TXT record {record_id} content. "
+                                            f"Skipping deletion to be safe."
+                                        )
+                                        continue
+                                
+                                # Only delete if we own this record
+                                if self._is_owned_by_this_instance(record_content):
+                                    records_to_delete.append(record_id)
+                                else:
+                                    self.logger.info(
+                                        f"Skipping deletion of TXT record {record_id} - owned by another instance"
+                                    )
+                        
+                        # Delete only our own duplicate records
+                        for record_id in records_to_delete:
+                            try:
+                                self.provider.cf.dns.records.delete(
+                                    dns_record_id=record_id, 
+                                    zone_id=zone_id
+                                )
+                                self.logger.info(f"Deleted duplicate TXT record {record_id} (owned by this instance)")
+                            except Exception as e:
+                                self.logger.error(f"Failed to delete duplicate TXT record {record_id}: {e}")
+                        
+                        # Now create the new record
+                        await self.provider._create_record(txt_endpoint)
+                        return
+                        
+                except Exception as e:
+                    self.logger.warning(
+                        f"Error checking for duplicate TXT records {txt_record_name}: {e}. "
+                        f"Proceeding with creation."
+                    )
+                    
+        except Exception as e:
+            self.logger.warning(
+                f"Error checking for existing TXT record {txt_record_name}: {e}. "
+                f"Proceeding with creation."
+            )
+
+        # Create TXT record (only if it doesn't exist or we don't own existing ones)
         await self.provider._create_record(txt_endpoint)
 
     async def _update_txt_record(
