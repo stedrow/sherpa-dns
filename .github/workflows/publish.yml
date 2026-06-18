@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository based on PR merge commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Fetch all history and tags for version bumping/tagging
           fetch-depth: 0
@@ -187,7 +187,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout main branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Fetch all history and tags for version bumping/tagging
           fetch-depth: 0
